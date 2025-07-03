@@ -27,9 +27,10 @@ import { PollNode } from '@/components/flow/nodes/PollNode';
 import { TemplateNode } from '@/components/flow/nodes/TemplateNode';
 
 // Sidebar and Panel
-import { NodePalette } from '@/components/flow/NodePalette';
-import { NodePropertiesPanel } from '@/components/flow/NodePropertiesPanel';
+import { ImprovedNodePalette } from '@/components/flow/ImprovedNodePalette';
+import { ImprovedNodePropertiesPanel } from '@/components/flow/ImprovedNodePropertiesPanel';
 import { FlowTestDialog } from '@/components/flow/FlowTestDialog';
+import { FlowToolbar } from '@/components/flow/FlowToolbar';
 const nodeTypes = {
   start: StartNode,
   textMessage: TextMessageNode,
@@ -66,6 +67,7 @@ function FlowBuilderComponent() {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [isTestDialogOpen, setIsTestDialogOpen] = useState(false);
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Fetch flow data
   const {
@@ -164,6 +166,8 @@ function FlowBuilderComponent() {
         title: 'Sucesso',
         description: 'Fluxo salvo com sucesso!'
       });
+      
+      setHasUnsavedChanges(false);
 
       // If it was a new flow, navigate to edit mode
       if (flowId === 'new' && data) {
@@ -228,6 +232,7 @@ function FlowBuilderComponent() {
         ...newData
       }
     } : node));
+    setHasUnsavedChanges(true);
   }, [setNodes]);
   const deleteNode = useCallback((nodeId: string) => {
     if (nodeId === 'start') return; // Não permitir deletar o nó inicial
@@ -255,45 +260,36 @@ function FlowBuilderComponent() {
               ← Voltar
             </Button>
             <div className="flex items-center gap-3">
-              <div className="w-3 h-3 rounded-full bg-primary animate-pulse"></div>
-              <Input value={flowName} onChange={e => setFlowName(e.target.value)} placeholder="Nome do seu fluxo de automação" className="w-80 font-medium" />
+              <div className={`w-3 h-3 rounded-full ${hasUnsavedChanges ? 'bg-orange-500 animate-pulse' : 'bg-primary'}`}></div>
+              <Input 
+                value={flowName} 
+                onChange={e => {
+                  setFlowName(e.target.value)
+                  setHasUnsavedChanges(true)
+                }} 
+                placeholder="Nome do seu fluxo de automação" 
+                className="w-80 font-medium" 
+              />
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                {nodes.length} nós
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                {edges.length} conexões
-              </div>
-            </div>
-            <Button 
-              variant="outline" 
-              onClick={() => setIsTestDialogOpen(true)}
-              disabled={nodes.length === 0}
-              className="gap-2"
-            >
-              🧪 Testar Fluxo
-            </Button>
-            <Button onClick={() => saveFlowMutation.mutate()} disabled={!flowName.trim() || saveFlowMutation.isPending} className="gap-2 min-w-24">
-              {saveFlowMutation.isPending ? <>
-                  <div className="w-4 h-4 rounded-full border-2 border-white/20 border-t-white animate-spin"></div>
-                  Salvando...
-                </> : <>
-                  💾 Salvar
-                </>}
-            </Button>
           </div>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 flex relative overflow-hidden">
+        {/* Improved Node Palette */}
+        <ImprovedNodePalette 
+          isOpen={isPaletteOpen}
+          onToggle={() => setIsPaletteOpen(!isPaletteOpen)}
+        />
+
         {/* Flow Canvas */}
-        <div className="flex-1 relative overflow-hidden" ref={reactFlowWrapper}>
+        <div 
+          className={`flex-1 relative overflow-hidden transition-all duration-300 ${
+            isPaletteOpen ? 'lg:ml-80' : 'ml-0'
+          }`} 
+          ref={reactFlowWrapper}
+        >
           <ReactFlow 
             nodes={nodes} 
             edges={edges} 
@@ -310,65 +306,30 @@ function FlowBuilderComponent() {
             deleteKeyCode={['Delete', 'Backspace']} 
             className="bg-gradient-to-br from-background to-muted/10"
           >
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
-            <Controls className="bg-background/80 backdrop-blur-sm border rounded-lg" />
-            
-            {/* Add Node Button */}
-            <Panel position="top-left" className="ml-4 mt-4">
-              <Button
-                onClick={() => setIsPaletteOpen(true)}
-                size="lg"
-                className="h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-200"
-                variant="default"
-              >
-                <Plus className="h-6 w-6" />
-              </Button>
-            </Panel>
-
-            {/* Quick Actions Panel */}
-            <Panel position="bottom-right" className="bg-background/80 backdrop-blur-sm rounded-lg p-2 border">
-              <div className="flex flex-col gap-2">
-                <Button variant="ghost" size="sm" onClick={() => {
-                // Auto-arrange nodes
-                const arrangedNodes = nodes.map((node, index) => ({
-                  ...node,
-                  position: {
-                    x: 100 + index % 3 * 300,
-                    y: 100 + Math.floor(index / 3) * 200
-                  }
-                }));
-                setNodes(arrangedNodes);
-              }} className="text-xs gap-1">
-                  ✨ Organizar
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => {
-                // Centralizar visualização no fluxo
-                fitView({ padding: 0.2, duration: 800 });
-              }} className="text-xs gap-1">
-                  🎯 Centralizar
-                </Button>
-              </div>
-            </Panel>
-          </ReactFlow>
-        </div>
-
-        {/* Node Palette Overlay */}
-        {isPaletteOpen && (
-          <div className="absolute inset-0 z-50 bg-black/20 flex items-start justify-start pointer-events-auto">
-            <div className="bg-background border-r shadow-xl h-full overflow-hidden">
-              <NodePalette onClose={() => setIsPaletteOpen(false)} />
-            </div>
-            <div 
-              className="flex-1 h-full cursor-pointer" 
-              onClick={() => setIsPaletteOpen(false)}
+            <Background variant={BackgroundVariant.Dots} gap={20} size={1} className="opacity-40" />
+            <Controls 
+              className="bg-background/80 backdrop-blur-sm border rounded-lg shadow-sm" 
+              showZoom={false}
+              showFitView={false}
+              showInteractive={false}
             />
-          </div>
-        )}
+          </ReactFlow>
+
+          {/* Floating Toolbar */}
+          <FlowToolbar
+            onSave={() => saveFlowMutation.mutate()}
+            onTest={() => setIsTestDialogOpen(true)}
+            isSaving={saveFlowMutation.isPending}
+            nodeCount={nodes.length}
+            edgeCount={edges.length}
+            hasUnsavedChanges={hasUnsavedChanges}
+          />
+        </div>
 
         {/* Enhanced Properties Panel */}
         {selectedNode && (
-          <div className="w-80 bg-background border-l shadow-xl h-full overflow-y-auto">
-            <NodePropertiesPanel 
+          <div className="h-full">
+            <ImprovedNodePropertiesPanel 
               node={selectedNode} 
               onClose={() => setSelectedNode(null)} 
               onUpdateNode={updateNodeData} 
