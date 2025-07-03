@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, DragEvent, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ReactFlow, Controls, Background, useNodesState, useEdgesState, addEdge, Connection, Edge, Node, ReactFlowProvider, useReactFlow, BackgroundVariant, Panel } from '@xyflow/react';
+import { ReactFlow, Controls, Background, useNodesState, useEdgesState, addEdge, Connection, Edge, Node, ReactFlowProvider, useReactFlow, BackgroundVariant, Panel, MiniMap } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -287,7 +287,7 @@ function FlowBuilderComponent() {
         <div 
           className={`flex-1 relative overflow-hidden transition-all duration-300 ${
             isPaletteOpen ? 'lg:ml-80' : 'ml-0'
-          }`} 
+          } ${selectedNode ? 'lg:mr-96' : 'mr-0'}`} 
           ref={reactFlowWrapper}
         >
           <ReactFlow 
@@ -305,15 +305,31 @@ function FlowBuilderComponent() {
             attributionPosition="bottom-left" 
             deleteKeyCode={['Delete', 'Backspace']} 
             className="bg-gradient-to-br from-background to-muted/10"
-          >
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1} className="opacity-40" />
-            <Controls 
-              className="bg-background/80 backdrop-blur-sm border rounded-lg shadow-sm" 
-              showZoom={false}
-              showFitView={false}
-              showInteractive={false}
-            />
-          </ReactFlow>
+           >
+             <Background variant={BackgroundVariant.Dots} gap={20} size={1} className="opacity-40" />
+             <Controls 
+               className="bg-background/80 backdrop-blur-sm border rounded-lg shadow-sm" 
+               showZoom={false}
+               showFitView={false}
+               showInteractive={false}
+             />
+             <MiniMap 
+               nodeColor={(node) => {
+                 switch (node.type) {
+                   case 'start': return 'hsl(var(--primary))';
+                   case 'textMessage': return '#3b82f6';
+                   case 'buttonMessage': return '#ea580c';
+                   case 'conditional': return '#eab308';
+                   case 'transfer': return '#dc2626';
+                   default: return '#6b7280';
+                 }
+               }}
+               className="bg-background/80 backdrop-blur-sm border rounded-lg shadow-sm"
+               pannable
+               zoomable
+               position="bottom-left"
+             />
+           </ReactFlow>
 
           {/* Floating Toolbar */}
           <FlowToolbar
@@ -328,14 +344,12 @@ function FlowBuilderComponent() {
 
         {/* Enhanced Properties Panel */}
         {selectedNode && (
-          <div className="h-full">
-            <ImprovedNodePropertiesPanel 
-              node={selectedNode} 
-              onClose={() => setSelectedNode(null)} 
-              onUpdateNode={updateNodeData} 
-              onDeleteNode={deleteNode} 
-            />
-          </div>
+          <ImprovedNodePropertiesPanel 
+            node={selectedNode} 
+            onClose={() => setSelectedNode(null)} 
+            onUpdateNode={updateNodeData} 
+            onDeleteNode={deleteNode} 
+          />
         )}
       </div>
 
